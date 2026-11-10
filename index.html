@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lyric Finder · 单词找歌</title>
+<style>
+  :root {
+    --bg:        #090D0B;
+    --bg-2:      #0D1311;
+    --panel:     #111816;
+    --panel-2:   #0E1513;
+    --ink:       #ECE5D5;
+    --ink-2:     #A6B0A9;
+    --ink-3:     #6C7A72;
+    --gold:      #D2A85C;
+    --gold-dim:  rgba(210,168,92,.14);
+    --gold-line: rgba(210,168,92,.30);
+    --sage:      #8FBCA6;
+    --rose:      #C88A9E;
+    --line:      rgba(236,229,213,.085);
+    --line-2:    rgba(236,229,213,.14);
+    --serif: Georgia, "Times New Roman", "Songti SC", "Noto Serif CJK SC", serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 48px 24px 140px;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(900px 520px at 18% -8%, rgba(210,168,92,.07), transparent 62%),
+      radial-gradient(760px 460px at 88% 4%, rgba(143,188,166,.05), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* ---------- 封面 ---------- */
+  .cover {
+    position: relative;
+    margin-bottom: 10px;
+    padding: 36px 36px 20px;
+    border: 1px solid rgba(236,229,213,.13);
+    border-radius: 4px;
+    overflow: hidden;
+    background:
+      radial-gradient(560px 340px at 80% 32%, rgba(210,168,92,.12), transparent 62%),
+      radial-gradient(420px 300px at 10% 96%, rgba(143,188,166,.055), transparent 66%),
+      linear-gradient(158deg, rgba(255,255,255,.038), rgba(255,255,255,.006) 46%, rgba(0,0,0,.24));
+    box-shadow: 0 34px 74px -36px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+
+  /* 内框细线：唱片封套的印刷框 */
+  .cover::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border: 1px solid rgba(210,168,92,.15);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* 纸纹：极细颗粒，避免大面积纯色的"数字感" */
+  .cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .5;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
+  }
+
+  .cover-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 36px;
+  }
+
+  .cover-text { flex: 1; min-width: 0; }
+
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: .9;
+    margin-bottom: 18px;
+  }
+
+  .kicker::before {
+    content: "";
+    width: 26px;
+    height: 1px;
+    background: var(--gold);
+    opacity: .55;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 56px;
+    font-weight: 400;
+    letter-spacing: -.015em;
+    line-height: .98;
+    margin-bottom: 18px;
+  }
+
+  h1 em { font-style: italic; color: var(--gold); }
+
+  .lede {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.85;
+    max-width: 32em;
+  }
+
+  .cover-meta {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .05em;
+    color: var(--ink-3);
+  }
+
+  .cover-meta span + span::before {
+    content: "·";
+    margin: 0 7px;
+    color: rgba(210,168,92,.5);
+  }
+
+  .cover-art { width: 236px; height: 236px; flex: none; margin-right: -6px; }
+  .disc { width: 100%; height: 100%; position: relative; }
+
+  /* 唱片常转（很慢），播放时提速 —— 像真的在放 */
+  .disc .grooves { transform-origin: 120px 120px; animation: spin 90s linear infinite; }
+  .disc.spin .grooves { animation-duration: 6s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 印刷角标：四角的对位标记，让"封套"更像印刷品 */
+  .cover-marks span {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border: 0 solid rgba(210,168,92,.32);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .cover-marks .tl { top: 16px; left: 16px; border-top-width: 1px; border-left-width: 1px; }
+  .cover-marks .tr { top: 16px; right: 16px; border-top-width: 1px; border-right-width: 1px; }
+  .cover-marks .bl { bottom: 16px; left: 16px; border-bottom-width: 1px; border-left-width: 1px; }
+  .cover-marks .br { bottom: 16px; right: 16px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  .cover-strip {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 13px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .cover-strip span:last-child { color: var(--gold); opacity: .75; }
+
+  /* ---------- 搜索区（长列表滚动时吸顶） ---------- */
+  .search-box {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin: 22px -12px 14px;
+    padding: 12px 12px 14px;
+    background: linear-gradient(180deg, rgba(9,13,11,.94) 55%, rgba(9,13,11,.70));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 19px 58px 19px 52px;
+    font-size: 17px;
+    font-family: var(--serif);
+    letter-spacing: .01em;
+    color: var(--ink);
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+    border: 1px solid var(--line-2);
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+
+  input[type="text"]::placeholder { color: var(--ink-3); font-style: italic; }
+
+  input[type="text"]:focus {
+    border-color: var(--gold-line);
+    background: rgba(255,255,255,.045);
+    box-shadow: 0 0 0 4px rgba(210,168,92,.06);
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 18px; top: 50%;
+    transform: translateY(-50%);
+    width: 18px; height: 18px;
+    pointer-events: none;
+  }
+
+  .say-word {
+    position: absolute;
+    right: 12px; top: 50%;
+    transform: translateY(-50%);
+    width: 34px; height: 34px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: all .18s;
+  }
+
+  .say-word:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-dim); }
+  .say-word svg { width: 16px; height: 16px; }
+
+  .kbd-hint {
+    position: absolute;
+    right: 60px; top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    border: 1px solid var(--line-2);
+    border-radius: 3px;
+    padding: 2px 8px;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+
+  .search-box.has-value .kbd-hint { opacity: 0; }
+
+  .clear-q {
+    position: absolute;
+    right: 52px; top: 50%;
+    transform: translateY(-50%);
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--ink-3);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s, color .15s, background .15s;
+  }
+
+  .search-box.has-value .clear-q { opacity: 1; pointer-events: auto; }
+  .clear-q:hover { color: var(--ink); background: rgba(255,255,255,.06); }
+
+  /* ---------- 候选词 ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 28px; }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    padding: 6px 12px;
+    color: var(--ink-3);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .18s;
+  }
+
+  .chip:hover {
+    color: var(--gold);
+    border-color: var(--gold-line);
+    background: var(--gold-dim);
+  }
+
+  /* ---------- 状态提示 ---------- */
+  .status {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-bottom: 18px;
+    min-height: 19px;
+    line-height: 1.7;
+    font-family: var(--mono);
+    letter-spacing: .01em;
+  }
+
+  .status b { color: var(--gold); font-weight: 500; }
+
+  /* ---------- 结果卡片 ---------- */
+  .result {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    margin-bottom: 1px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+
+  .result:hover { border-color: var(--line-2); }
+
+  .result-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 13px 18px 11px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.012);
+  }
+
+  .song-title { font-family: var(--serif); font-size: 15px; letter-spacing: .005em; }
+
+  .song-artist { font-size: 11.5px; color: var(--ink-3); }
+
+  .hit-count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    color: var(--sage);
+    background: rgba(143,188,166,.10);
+    padding: 3px 9px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* ---------- 歌词行 ---------- */
+  .lyric-line {
+    display: flex;
+    gap: 14px;
+    padding: 11px 18px;
+    font-size: 14.5px;
+    line-height: 1.7;
+    cursor: pointer;
+    transition: background .15s;
+    align-items: flex-start;
+    position: relative;
+  }
+
+  .lyric-line + .lyric-line { border-top: 1px solid rgba(236,229,213,.045); }
+
+  .lyric-line:hover { background: rgba(210,168,92,.045); }
+
+  .lyric-line:hover .act { opacity: 1; }
+
+  .lyric-line.playing {
+    background: rgba(210,168,92,.075);
+    box-shadow: inset 2px 0 0 var(--gold);
+  }
+
+  .timestamp {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    padding-top: 4px;
+    flex-shrink: 0;
+    min-width: 32px;
+    letter-spacing: .02em;
+  }
+
+  .lyric-line.playing .timestamp { color: var(--gold); }
+
+  .lyric-text { color: #D8D2C4; flex: 1; }
+  .lyric-line.playing .lyric-text { color: var(--ink); }
+
+  /* 播放时逐词点亮：让"在唱"这件事看得见 */
+  .lyric-text .w {
+    transition: color .14s ease, background-color .14s ease;
+    border-radius: 2px;
+  }
+  .lyric-text .w.sung {
+    color: #F7E6BE;
+    background: rgba(210,168,92,.14);
+    box-shadow: inset 0 -1px 0 rgba(210,168,92,.5);
+  }
+
+  /* ---------- 音高曲线：垫在每句歌词下面的那条阶梯金线 ----------
+   * 与唱出来的音符共用同一份时间轴（引擎的 preview），
+   * 播放时亮线从左到右推进，和"哪个词被点亮"严格同步。 */
+  .pitch {
+    display: block;
+    height: 20px;
+    margin-top: 4px;
+    opacity: .45;
+    transition: opacity .2s;
+  }
+
+  /* 折叠列表里行更密，曲线收小一点，别让页面看起来像条形码 */
+  .all-results .pitch { height: 14px; margin-top: 1px; opacity: .34; }
+
+  .lyric-line:hover .pitch,
+  .lyric-line.playing .pitch { opacity: .95; }
+
+  .pitch-svg { width: 100%; height: 100%; display: block; }
+
+  .pitch-svg path {
+    fill: none;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .pitch-svg .p-base { stroke: var(--gold); stroke-width: 1px; opacity: .5; }
+
+  /* 音符点：用"零长度线段 + 圆头"画，好处是非等比缩放后仍然是圆的 */
+  .pitch-svg .p-dots { stroke: var(--gold); stroke-width: 2.4px; opacity: .55; }
+
+  .pitch-svg .p-fill {
+    stroke: #FDF0CE;
+    stroke-width: 1.6px;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+
+  /* 播放中：未唱的部分压暗，"已经唱过"的那段才真正亮起来 */
+  .lyric-line.playing .pitch-svg .p-base { opacity: .22; }
+  .lyric-line.playing .pitch-svg .p-fill {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(246,227,180,.45));
+  }
+
+  .mel-badge {
+    font-size: 10px;
+    color: var(--gold);
+    border: 1px solid var(--gold-line);
+    border-radius: 2px;
+    padding: 1px 5px;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+
+  .mel-badge.hum {
+    color: var(--sage);
+    border-color: rgba(143,188,166,.32);
+    opacity: .85;
+  }
+
+  mark {
+    background: rgba(210,168,92,.22);
+    color: #F4DFB0;
+    padding: 1px 3px;
+    border-radius: 2px;
+    box-shadow: inset 0 -1px 0 rgba(210,168,92,.65);
+    font-style: normal;
+  }
+
+  /* 行内动作按钮 */
+  .acts { display: flex; gap: 4px; flex-shrink: 0; align-self: center; }
+
+  .act {
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    color: var(--ink-3);
+    cursor: pointer;
+    opacity: 0;
+    transition: all .16s;
+    padding: 0;
+  }
+
+  .act:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-dim); }
+  .act svg { width: 12px; height: 12px; display: block; }
+  .act.is-on { opacity: 1; color: var(--gold); }
+
+  @media (hover: none) { .act { opacity: 1; } }
+
+  /* ---------- 精选例句 ---------- */
+  .featured {
+    border: 1px solid var(--gold-line);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    background: linear-gradient(180deg, rgba(210,168,92,.055), rgba(210,168,92,.015));
+    position: relative;
+  }
+
+  .featured::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 rgba(210,168,92,.18);
+  }
+
+  .featured-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--gold-line);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .featured-tip {
+    margin-left: auto;
+    font-family: -apple-system, sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-3);
+  }
+
+  .feat-line { padding: 14px 18px; }
+
+  .feat-body { flex: 1; min-width: 0; }
+
+  .feat-body .lyric-text { font-size: 16px; line-height: 1.65; font-family: var(--serif); }
+
+  .feat-src {
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 5px;
+    letter-spacing: .01em;
+  }
+
+  .feat-src em { color: var(--ink-2); font-style: normal; }
+
+  .repeat-badge {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    color: var(--rose);
+    background: rgba(200,138,158,.10);
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  /* ---------- 展开全部 ---------- */
+  .toggle-all {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 18px 0;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .18s;
+  }
+
+  .toggle-all:hover { color: var(--gold); border-color: var(--gold-line); }
+
+  .all-results { display: none; }
+  .all-results.open { display: block; }
+
+  /* ---------- 空状态 ---------- */
+  .empty {
+    text-align: center;
+    padding: 72px 20px;
+    color: var(--ink-3);
+    font-size: 13px;
+    line-height: 2;
+    border: 1px dashed var(--line-2);
+    border-radius: 3px;
+  }
+
+  .empty-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink-2);
+    margin-bottom: 10px;
+  }
+
+  .empty b { color: var(--gold); font-weight: 400; }
+
+  .empty-note { font-size: 11.5px; color: var(--ink-3); margin-top: 16px; line-height: 1.9; }
+
+  .suggest-block { margin: 18px 0 6px; }
+
+  .suggest-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: .8;
+    margin-bottom: 10px;
+  }
+
+  .suggest-list { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+
+  .suggest-chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 14px;
+    color: var(--ink);
+    background: rgba(210,168,92,.08);
+    border: 1px solid var(--gold-line);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .16s;
+  }
+
+  .suggest-chip:hover { background: rgba(210,168,92,.2); color: #F4DFB0; }
+
+  /* ---------- 底部播放条 ---------- */
+  .player {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(13,19,17,.93);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--gold-line);
+    padding: 14px 24px;
+    display: none;
+    align-items: center;
+    gap: 16px;
+    z-index: 50;
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5);
+  }
+
+  .player.active { display: flex; }
+
+  .eq { display: flex; align-items: flex-end; gap: 2.5px; height: 20px; width: 22px; flex: none; }
+
+  .eq i {
+    display: block;
+    width: 3px;
+    height: 4px;
+    background: var(--gold);
+    border-radius: 1px;
+    opacity: .45;
+    transition: opacity .2s;
+  }
+
+  .player.playing .eq i { opacity: 1; animation: bounce .9s ease-in-out infinite; }
+  .player.playing .eq i:nth-child(2) { animation-delay: .18s; }
+  .player.playing .eq i:nth-child(3) { animation-delay: .36s; }
+  .player.playing .eq i:nth-child(4) { animation-delay: .54s; }
+
+  @keyframes bounce {
+    0%, 100% { height: 4px; }
+    50% { height: 18px; }
+  }
+
+  .player-info { flex: 1; min-width: 0; }
+
+  .player-song {
+    font-family: var(--serif);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .player-line {
+    font-size: 12px;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 3px;
+  }
+
+  .player-note {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    color: var(--gold);
+    background: var(--gold-dim);
+    padding: 5px 10px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .close-player {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--ink-3);
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color .15s;
+  }
+
+  .close-player:hover { color: var(--ink); }
+
+  .big-act {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .16s;
+    white-space: nowrap;
+  }
+
+  .big-act:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-dim); }
+
+  /* 人声 / 乐声 / 朗读 三档开关：默认人声，循环切换 */
+  .voice-switch {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    padding: 6px 11px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .16s;
+    white-space: nowrap;
+  }
+
+  .voice-switch:hover { color: var(--gold); border-color: var(--gold-line); }
+
+  .voice-switch.on { color: var(--gold); border-color: var(--gold-line); background: var(--gold-dim); }
+
+  /* ---------- 学习面板 ---------- */
+  .study-panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--gold-line);
+    border-radius: 3px;
+    padding: 20px 22px;
+    margin-bottom: 30px;
+  }
+
+  .study-panel summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .study-panel summary::-webkit-details-marker { display: none; }
+
+  .study-panel summary::after {
+    content: "+";
+    margin-left: auto;
+    color: var(--gold);
+    font-family: var(--mono);
+    font-size: 15px;
+    opacity: .7;
+  }
+
+  .study-panel[open] summary::after { content: "–"; opacity: 1; }
+
+  .study-panel summary:hover .study-title,
+  .study-panel[open] .study-title { color: var(--gold); }
+
+  .study-title { font-family: var(--serif); font-size: 16px; transition: color .16s; }
+
+  .study-hint { font-size: 11.5px; color: var(--ink-3); }
+
+  .study-body { padding-top: 14px; }
+
+  .study-badge {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-dim);
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+
+  .study-desc { font-size: 12px; color: var(--ink-3); line-height: 1.75; margin-bottom: 12px; }
+
+  textarea {
+    width: 100%;
+    min-height: 76px;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--ink);
+    background: rgba(0,0,0,.28);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    resize: vertical;
+    outline: none;
+    line-height: 1.75;
+    transition: border-color .2s;
+  }
+
+  textarea::placeholder { color: var(--ink-3); }
+  textarea:focus { border-color: var(--gold-line); }
+
+  .study-btn {
+    margin-top: 12px;
+    padding: 10px 20px;
+    font-size: 12.5px;
+    font-family: inherit;
+    letter-spacing: .02em;
+    background: var(--gold);
+    color: #1A1408;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity .15s, transform .15s;
+  }
+
+  .study-btn:hover { opacity: .88; }
+  .study-btn:active { transform: translateY(1px); }
+
+  .study-result {
+    margin-top: 18px;
+    font-size: 13px;
+    line-height: 2;
+    color: var(--ink-2);
+    display: none;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  .study-result.show { display: block; }
+
+  .word-tag {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 2px;
+    margin: 3px 4px 3px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .02em;
+  }
+
+  .word-hit { background: rgba(143,188,166,.12); color: var(--sage); cursor: pointer; transition: background .15s; }
+  .word-hit:hover { background: rgba(143,188,166,.24); }
+  .word-miss { background: rgba(236,229,213,.04); color: var(--ink-3); }
+
+  /* ---------- 常见问题 ---------- */
+  .faq {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+
+  .faq-title {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: -.01em;
+    margin-bottom: 5px;
+  }
+
+  .faq-sub { font-size: 11.5px; color: var(--ink-3); margin-bottom: 14px; }
+
+  .faq details { border-bottom: 1px solid var(--line); }
+
+  .faq summary {
+    cursor: pointer;
+    padding: 14px 26px 14px 0;
+    font-size: 13.5px;
+    color: var(--ink);
+    list-style: none;
+    position: relative;
+    transition: color .16s;
+    line-height: 1.6;
+  }
+
+  .faq summary::-webkit-details-marker { display: none; }
+
+  .faq summary::after {
+    content: "+";
+    position: absolute;
+    right: 4px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--gold);
+    font-size: 15px;
+    font-family: var(--mono);
+    opacity: .7;
+  }
+
+  .faq details[open] summary::after { content: "–"; opacity: 1; }
+  .faq summary:hover { color: var(--gold); }
+  .faq details[open] summary { color: var(--gold); }
+
+  .faq .a {
+    padding: 0 34px 18px 0;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 2;
+  }
+
+  .faq .a b { color: var(--ink); font-weight: 500; }
+
+  .faq .a code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--gold);
+    background: var(--gold-dim);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* ---------- 底部说明 ---------- */
+  .footnote {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    line-height: 2;
+  }
+
+  .footnote b { color: var(--ink-2); font-weight: 500; }
+
+  .footnote .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 32px;
+    margin-top: 14px;
+  }
+
+  /* ---------- 动效与细节 ---------- */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .featured, .result, .empty { animation: rise .35s ease both; }
+
+  .featured .feat-line { animation: rise .4s ease both; }
+  .featured .feat-line:nth-child(2) { animation-delay: .04s; }
+  .featured .feat-line:nth-child(3) { animation-delay: .08s; }
+  .featured .feat-line:nth-child(4) { animation-delay: .12s; }
+  .featured .feat-line:nth-child(5) { animation-delay: .16s; }
+  .featured .feat-line:nth-child(6) { animation-delay: .20s; }
+
+  :focus-visible { outline: 1px solid var(--gold-line); outline-offset: 2px; }
+  input[type="text"]:focus-visible, textarea:focus-visible { outline: none; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #1E2622; border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  @media (max-width: 720px) {
+    body { padding: 30px 18px 130px; }
+    h1 { font-size: 38px; }
+    .cover { padding: 26px 20px 16px; }
+    .cover-inner { gap: 18px; }
+    .cover-art { width: 118px; height: 118px; margin-right: 0; }
+    .cover-marks { display: none; }
+    .lede { font-size: 12.5px; }
+    /* 印刷角标：四角的对位标记，让"封套"更像印刷品 */
+  .cover-marks span {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border: 0 solid rgba(210,168,92,.32);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .cover-marks .tl { top: 16px; left: 16px; border-top-width: 1px; border-left-width: 1px; }
+  .cover-marks .tr { top: 16px; right: 16px; border-top-width: 1px; border-right-width: 1px; }
+  .cover-marks .bl { bottom: 16px; left: 16px; border-bottom-width: 1px; border-left-width: 1px; }
+  .cover-marks .br { bottom: 16px; right: 16px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  .cover-strip { font-size: 8px; letter-spacing: .13em; margin-top: 20px; }
+    .search-box { margin-inline: -18px; padding-inline: 18px; }
+    .kbd-hint, .study-hint, .featured-tip { display: none; }
+    .chips { gap: 6px; }
+    .chip { padding: 5px 10px; }
+    .footnote .cols { grid-template-columns: 1fr; }
+    .player { padding: 12px 14px; gap: 10px; }
+    .big-act { display: none; }
+    .player-note { font-size: 10px; padding: 4px 8px; }
+    .faq .a { padding-right: 8px; }
+    input[type="text"] { font-size: 16px; padding-left: 46px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="cover">
+    <div class="cover-inner">
+      <div class="cover-text">
+        <div class="kicker">Songbook · Public Domain</div>
+        <h1>Lyric <em>Finder</em></h1>
+        <p class="lede">输入一个英语单词，找出它出现在哪首歌里，然后听那一句。</p>
+        <div class="cover-meta" id="libInfo">曲库加载中…</div>
+      </div>
+      <div class="cover-art">
+        <div class="disc" id="disc">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="vinylBase" cx="50%" cy="46%" r="54%">
+              <stop offset="0%"   stop-color="#1B2621"/>
+              <stop offset="52%"  stop-color="#101815"/>
+              <stop offset="82%"  stop-color="#090E0C"/>
+              <stop offset="100%" stop-color="#070B09"/>
+            </radialGradient>
+            <linearGradient id="rimG" x1="0" y1="0" x2="0.35" y2="1">
+              <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".34"/>
+              <stop offset="42%"  stop-color="#FFFFFF" stop-opacity=".05"/>
+              <stop offset="100%" stop-color="#000000" stop-opacity=".5"/>
+            </linearGradient>
+            <linearGradient id="sheenA" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"  stop-color="#FFFFFF" stop-opacity=".14"/>
+              <stop offset="48%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="sheenB" x1="1" y1="0.1" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#D2A85C" stop-opacity=".13"/>
+              <stop offset="46%" stop-color="#D2A85C" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="spec" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="50%" stop-color="#FFFFFF" stop-opacity=".09"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="labelG" cx="34%" cy="26%" r="82%">
+              <stop offset="0%"   stop-color="#F6E2AE"/>
+              <stop offset="52%"  stop-color="#DDBB77"/>
+              <stop offset="100%" stop-color="#B4863C"/>
+            </radialGradient>
+            <radialGradient id="ringG" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="30%"  stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="44%"  stop-color="#FFFFFF" stop-opacity=".022"/>
+              <stop offset="55%"  stop-color="#FFFFFF" stop-opacity=".05"/>
+              <stop offset="70%"  stop-color="#FFFFFF" stop-opacity=".028"/>
+              <stop offset="86%"  stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="hotG" cx="28%" cy="20%" r="56%">
+              <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".13"/>
+              <stop offset="42%"  stop-color="#FFFFFF" stop-opacity=".05"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="warmG" cx="76%" cy="84%" r="52%">
+              <stop offset="0%"   stop-color="#D2A85C" stop-opacity=".12"/>
+              <stop offset="55%"  stop-color="#D2A85C" stop-opacity=".03"/>
+              <stop offset="100%" stop-color="#D2A85C" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="glossG" x1="0.08" y1="0" x2="0.92" y2="1">
+              <stop offset="0%"    stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="40%"   stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="45.5%" stop-color="#FFFFFF" stop-opacity=".04"/>
+              <stop offset="47.4%" stop-color="#FFFFFF" stop-opacity=".19"/>
+              <stop offset="49.2%" stop-color="#FFFFFF" stop-opacity=".04"/>
+              <stop offset="55%"   stop-color="#FFFFFF" stop-opacity="0"/>
+              <stop offset="100%"  stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="warmG2" x1="1" y1="0.1" x2="0.1" y2="1">
+              <stop offset="0%"    stop-color="#D2A85C" stop-opacity="0"/>
+              <stop offset="58%"   stop-color="#D2A85C" stop-opacity="0"/>
+              <stop offset="69%"   stop-color="#D2A85C" stop-opacity=".085"/>
+              <stop offset="74%"   stop-color="#D2A85C" stop-opacity="0"/>
+              <stop offset="100%"  stop-color="#D2A85C" stop-opacity="0"/>
+            </linearGradient>
+            <clipPath id="vinylClip"><circle cx="120" cy="120" r="118"/></clipPath>
+          </defs>
+
+          <circle cx="120" cy="120" r="118" fill="url(#vinylBase)"/>
+
+          <circle cx="120" cy="120" r="118" fill="url(#ringG)" clip-path="url(#vinylClip)"/>
+          <circle cx="120" cy="120" r="118" fill="url(#warmG)" clip-path="url(#vinylClip)"/>
+
+          <g class="grooves">
+          <circle cx="120" cy="120" r="50.0" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="52.1" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="54.3" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="56.4" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="58.6" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="60.7" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="62.9" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="65.0" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="67.2" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="69.4" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="71.5" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="73.7" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="75.8" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="78.0" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="80.1" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="82.3" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="84.4" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="86.6" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="88.7" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="90.9" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="93.0" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="95.2" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="97.3" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="99.5" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="101.6" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="103.8" fill="none" stroke="#ECE5D5" stroke-opacity=".15" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="105.9" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="108.1" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          <circle cx="120" cy="120" r="110.2" fill="none" stroke="#ECE5D5" stroke-opacity=".09" stroke-width=".48"/>
+          <circle cx="120" cy="120" r="112.4" fill="none" stroke="#ECE5D5" stroke-opacity=".055" stroke-width=".42"/>
+          </g>
+
+          <circle cx="120" cy="120" r="118" fill="url(#glossG)"/>
+          <circle cx="120" cy="120" r="118" fill="url(#warmG2)"/>
+
+          <circle cx="120" cy="120" r="117.4" fill="none" stroke="url(#rimG)" stroke-width="1.7"/>
+
+          <circle cx="120" cy="120" r="48.6" fill="none" stroke="#000000" stroke-opacity=".28" stroke-width="2.8"/>
+          <circle cx="120" cy="120" r="46" fill="url(#labelG)"/>
+          <circle cx="120" cy="120" r="46" fill="none" stroke="#000000" stroke-opacity=".34" stroke-width=".9"/>
+          <circle cx="120" cy="120" r="40" fill="none" stroke="#6B4E1C" stroke-opacity=".28" stroke-width=".7"/>
+
+          <path d="M97 95 h46" stroke="#6B4E1C" stroke-opacity=".4" stroke-width=".6"/>
+          <path d="M97 147 h46" stroke="#6B4E1C" stroke-opacity=".4" stroke-width=".6"/>
+
+          <text x="120" y="105" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="7.8" letter-spacing=".5" fill="#2C1D07">LYRIC FINDER</text>
+          <text x="120" y="112" text-anchor="middle" font-family="Georgia, serif" font-size="3.5" letter-spacing=".7" fill="#4A3411" fill-opacity=".78">PUBLIC DOMAIN SONGBOOK</text>
+          <text x="120" y="132" text-anchor="middle" font-family="Georgia, serif" font-size="4.6" letter-spacing=".9" fill="#3A2A10" fill-opacity=".9">33&#8531; RPM</text>
+          <text x="120" y="140" text-anchor="middle" font-family="Georgia, serif" font-size="3.4" letter-spacing=".6" fill="#4A3411" fill-opacity=".7">NO. 001 &#183; VOL. I</text>
+
+          <circle cx="120" cy="120" r="3.4" fill="#070B09"/>
+          <circle cx="120" cy="120" r="3.4" fill="none" stroke="#000000" stroke-opacity=".5" stroke-width=".6"/>
+          <circle cx="120" cy="120" r="1.5" fill="#0A0F0D"/>
+        </svg>
+        </div>
+      </div>
+    </div>
+    <div class="cover-marks" aria-hidden="true">
+      <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+    </div>
+    <div class="cover-strip">
+      <span>Vol. I</span>
+      <span>No. 001</span>
+      <span>33⅓ RPM</span>
+      <span>Public Domain</span>
+    </div>
+  </header>
+
+  <div class="search-box">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#6C7A72" stroke-width="1.8">
+      <circle cx="11" cy="11" r="7"/>
+      <path d="M20 20l-3.5-3.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" id="q" placeholder="试试：love / night / river / hands" autocomplete="off" spellcheck="false">
+    <span class="kbd-hint" aria-hidden="true">/</span>
+    <button class="clear-q" id="clearQ" title="清空" aria-label="清空搜索框">&times;</button>
+    <button class="say-word" id="sayWord" title="朗读这个单词">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M11 5L6 9H3v6h3l5 4V5z"/>
+        <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+        <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <div class="status" id="status"></div>
+  <div id="results"></div>
+
+  <details class="study-panel" id="studyPanel">
+    <summary>
+      <span class="study-title">我的单词表</span>
+      <span class="study-badge">需求驱动</span>
+      <span class="study-hint">粘贴词表 · 算覆盖率，看有多少词能找到歌</span>
+    </summary>
+    <div class="study-body">
+      <div class="study-desc">
+        粘贴课本单元词表或四六级生词，看它们有多少能在曲库里找到歌；点命中的词直接跳到搜索。
+      </div>
+      <textarea id="wordlist" placeholder="love  night  home  water  hand&#10;（空格、逗号或换行分隔都行）"></textarea>
+      <button class="study-btn" id="analyzeBtn">分析覆盖率</button>
+      <div class="study-result" id="studyResult"></div>
+    </div>
+  </details>
+
+  <section class="faq">
+    <h2 class="faq-title">常见问题</h2>
+    <div class="faq-sub">这些问题大多是试用时第一分钟就会冒出来的</div>
+
+    <details>
+      <summary>为什么只有 118 首歌？</summary>
+      <div class="a">
+        因为曲库规模不是技术问题，是数据和版权问题。这 118 首全部是公有领域作品，
+        可以合法完整展示；而要收录一首流行歌，得先解决词曲授权。
+        技术上再加 200 首也跑得动，但检索要换成倒排索引才不卡——那是下一阶段的事。
+      </div>
+    </details>
+
+    <details>
+      <summary>为什么 education、technology 这类词查不到？</summary>
+      <div class="a">
+        因为<b>民谣不唱这些词</b>。实测 38 个四六级抽象词，38 个命中 0 句。
+        这不是算法缺陷，是题材决定的边界：歌里唱的是 love / river / night / home。
+        所以本工具定位在<b>基础具体词</b>，不承诺学术词覆盖——把边界说清楚，比宣称"什么都能查"可信。
+      </div>
+    </details>
+
+    <details>
+      <summary>听到的是真人唱的吗？</summary>
+      <div class="a">
+        不是录音，是人声合成。整个应用<b>不含任何音频文件</b>——录音制品有版权，旋律没有，
+        所以旋律和"唱"都是打开页面那一刻算出来的：
+        <br><br>
+        <b>① 旋律</b>：<span id="faqMelody">86</span> 首配了传世曲谱，用振荡器现场演奏（八音盒音色 + 低音垫）；
+        另外 32 首多为念谣类童谣、本无固定曲调，按歌词音节现场哼一段五声音阶，界面会标明"即兴哼唱"。
+        <br><br>
+        <b>② 唱</b>：每个音符唱一个音节。发声体是"声门源 + 三段共振峰"——锯齿波当声带，
+        三个带通滤波器当口腔，中心频率取 a / e / i / o / u 的第一、二、三共振峰；
+        元音从单词拼写里取（home → o，happy → a 再 i），一个词有几个音节就换几次口型。
+        词首补一点辅音噪声（s 是沙沙、p 是短爆），词内音符之间做 55ms 滑音，颤音延迟 0.18 秒才起振。
+        人声比八音盒低八度——这些民谣多在 G4–E5，照原调唱谐波太稀，元音反而听不清。
+        具体低几个八度按整句音区算，让"最高的那几个音"也落在 350Hz 以下。
+        <br><br>
+        <b>③ 那条金线</b>：每句歌词下面画着它的音高走势——阶梯越高，唱得越高；
+        每个音起点有一个小点。它和声音用的是同一份时间轴，所以点播放时，
+        亮线从左推到右、词一个个亮起来、曲线正好走到那个词，三件事是同步的。
+        <br><br>
+        所以它确实在"唱这个词"，但<b>不是真人</b>：没有发音词典，辅音只是点缀，咬字不如 TTS 清楚。
+        想只听旋律、想听最清楚的发音，播放条上有「人声 / 乐声 / 朗读」三档开关（朗读=系统语音引擎正常读这句，逐词点亮），句子右侧的 🔊 则任何时候都直接朗读。
+      </div>
+    </details>
+
+    <details>
+      <summary>展示歌词不会侵权吗？</summary>
+      <div class="a">
+        曲库全部为公有领域作品（传统民谣、灵歌、童谣与 18–19 世纪创作歌曲），著作权保护期已届满，
+        可合法完整展示。另外结果页每首歌只呈现<b>命中目标词的那一句</b>，不做整首歌词的批量输出。
+      </div>
+    </details>
+
+    <details>
+      <summary>和 LyricsTraining 有什么不同？</summary>
+      <div class="a">
+        它是<b>歌曲驱动</b>：先选一首歌，再学这首歌里的词。
+        本项目是<b>需求驱动</b>：你手上有自己的单词表，反过来找"这个词在哪首歌里被唱过"。
+        方向相反，解决的是不同的场景——所以才有'粘贴单词表算覆盖率'这个功能。
+      </div>
+    </details>
+
+    <details>
+      <summary>搜 save 能搜到 saved 吗？</summary>
+      <div class="a">
+        能。做法不是简单去掉词尾，而是<b>先生成候选、再回曲库词表验证</b>：
+        <code>eyes → ey / eye</code> 取真实存在的 <code>eye</code>，
+        <code>running → runn / run</code> 取 <code>run</code>，
+        <code>roses → rose</code> 而不会被误判成 <code>rise</code>。
+        复合词也做了拆分：<code>riverside → river + side</code>。
+      </div>
+    </details>
+
+    <details>
+      <summary>我的数据会被上传吗？</summary>
+      <div class="a">
+        不会。整个应用是纯前端，没有后端、没有数据库，
+        粘贴的单词表只存在于当前页面的内存里，关掉即消失。
+        查询词会写进地址栏（方便把链接发给别人），但不会发往任何服务器。
+      </div>
+    </details>
+  </section>
+
+  <div class="footnote">
+    <div class="cols">
+      <div>
+        <b>关于版权</b><br>
+        曲库全部为公有领域作品（传统民谣、灵歌、童谣与 18–19 世纪创作歌曲），
+        著作权保护期已届满。<br>
+        <b>关于声音</b><br>
+        不加载任何录音文件 —— 旋律由 Web Audio 现场合成，
+        歌词由浏览器语音引擎朗读。声音里没有第三方录音，因此没有录音制品权问题。
+      </div>
+      <div style="margin-top:14px">
+        <b>匹配规则</b><br>
+        大小写不敏感；词形还原采用「候选 + 曲库词表验证」，
+        eyes → eye、running → run、dried → dry、riverside → river + side。<br>
+        <b>结果呈现</b><br>
+        每词精选 5 句，来源分散在不同歌曲，避免一屏几十句刷屏。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="player" id="player">
+  <div class="eq"><i></i><i></i><i></i><i></i></div>
+  <div class="player-info">
+    <div class="player-song" id="pSong"></div>
+    <div class="player-line" id="pLine"></div>
+  </div>
+  <button class="voice-switch on" id="pVoice" title="人声：按元音唱这句；乐声：只听八音盒旋律；朗读：系统语音正常读">人声</button>
+  <button class="big-act" id="pSeq" title="从这一句开始，连着演奏后面三句">连听 4 句</button>
+  <button class="big-act" id="pReplay" title="重播这一句">重播</button>
+  <div class="player-note" id="pTime"></div>
+  <button class="close-player" id="pClose">&times;</button>
+</div>
+
+<script src="songs-data.js"></script>
+<script src="audio-engine.js"></script>
+<script>
+/* ============================================================
+ * Lyric Finder — 核心逻辑
+ * ============================================================
+ * 整个程序只有三件事：
+ *   1. 把单词标准化（normalize）
+ *   2. 遍历所有歌词行，找出包含这个单词的（search）
+ *   3. 把结果渲染到页面上（render）
+ *
+ * 读懂这三个函数，你就读懂了"单词找歌"的全部原理。
+ */
+
+/* ---------- 工具函数 0：曲库词表 ----------
+ * 这张表是本项目准确率的关键。
+ * 传统做法是"看到 -s 就去掉 s"，但 eyes → ey 就错了。
+ * 这里的做法是：先生成几个候选原形，然后**到曲库词表里验证**
+ * 哪一个真的存在。存在即命中，不存在就换下一个候选。
+ */
+const VOCAB = (() => {
+  const set = new Set();
+  SONGS.forEach(song => song.lines.forEach(line => {
+    (line.text.match(/[A-Za-z][A-Za-z']*/g) || []).forEach(raw => {
+      const w = raw.toLowerCase().replace(/[^a-z']/g, "");
+      if (w) set.add(w);
+    });
+  }));
+  return set;
+})();
+
+// 以 s 结尾但不是复数的常见词：不能瞎去 s
+const SUFFIX_EXCEPTIONS = new Set([
+  "this", "his", "its", "us", "as", "is", "was", "has", "does", "goes",
+  "yes", "always", "perhaps", "across", "less", "miss", "pass", "class",
+  "grass", "glass", "dress", "bless", "news", "series", "means",
+  "towards", "upstairs", "business", "darkness", "kindness", "witness"
+]);
+
+// 虚词表：这些词几乎每句都有，查它们没有学习价值，需要提示用户
+const STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "at", "by",
+  "for", "with", "from", "up", "down", "out", "off", "over", "all", "so",
+  "i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us",
+  "them", "my", "your", "his", "its", "our", "their", "this", "that",
+  "these", "those", "is", "am", "are", "was", "were", "be", "been",
+  "do", "does", "did", "not", "no", "will", "would", "can", "could",
+  "shall", "should", "may", "might", "must", "have", "has", "had"
+]);
+
+/* ---------- 工具函数 1：标准化一个单词 ---------- */
+// 把 "Counting" → "count"，"I've" → "i"，"eyes" → "eye"
+function normalize(word) {
+  let w = (word || "").toLowerCase().trim();
+  w = w.replace(/[^a-z']/g, "");       // 去掉标点
+  w = w.replace(/'s$|'ve$|'re$|'ll$|'d$|n't$/g, ""); // 去缩写后缀
+  if (!w) return "";
+
+  if (LEMMA_TABLE[w]) return LEMMA_TABLE[w];
+  if (SUFFIX_EXCEPTIONS.has(w)) return w;
+
+  // 生成"可能的原形"候选，按可信度从高到低排列
+  const candidates = [];
+  const push = s => { if (s && s.length >= 2 && s !== w && !candidates.includes(s)) candidates.push(s); };
+
+  if (w.endsWith("ies") && w.length > 4) push(w.slice(0, -3) + "y");   // stories → story
+  if (w.endsWith("ied") && w.length > 4) push(w.slice(0, -3) + "y");   // dried → dry
+  if (w.endsWith("ing") && w.length > 4) {
+    const stem = w.slice(0, -3);
+    push(stem);                                          // walking → walk
+    push(stem + "e");                                    // dancing → dance
+    if (/([bdgmnprtz])\1$/.test(stem)) push(stem.slice(0, -1)); // running → run
+  }
+  if (w.endsWith("ed") && w.length > 4) {
+    const stem = w.slice(0, -2);
+    push(stem);                                          // climbed → climb
+    push(stem + "e");                                    // loved → love
+    if (/([bdgmnprtz])\1$/.test(stem)) push(stem.slice(0, -1)); // stopped → stop
+  }
+  // 注意顺序：先试"只去 s"（eyes → eye），再试"去 es"（boxes → box）
+  // 顺序反了的话，eyes 会被切成 ey
+  if (w.endsWith("s") && !w.endsWith("ss")) push(w.slice(0, -1)); // eyes → eye
+  if (w.endsWith("es") && w.length > 3) push(w.slice(0, -2));   // boxes → box
+
+  // 关键一步：选那个"曲库里真的存在"的候选。
+  // 优先看原始词表（roses → rose，而不是 rose → rise 的歧义），再看词形表。
+  for (const c of candidates) {
+    if (VOCAB.has(c)) return c;
+    if (LEMMA_TABLE[c]) return LEMMA_TABLE[c];
+  }
+  return candidates.length ? candidates[0] : w;
+}
+
+/* ---------- 工具函数 2：把一行歌词拆成单词数组 ---------- */
+// "I've been losing sleep" → ["I've", "been", "losing", "sleep"]
+function splitWords(line) {
+  return line.match(/[A-Za-z][A-Za-z']*/g) || [];
+}
+
+/* ---------- 工具函数 3：复合词拆分 ----------
+ * 问题：搜 "river" 查不到 "riverside"，因为它是完整的一个词。
+ * 解法：先用整份曲库自己构建一个"词表"，再把长词切成两段验证，
+ *       如果两段都在词表里，就认定它是复合词。
+ * 例：riverside → river + side     riverside 和 river 就能互相命中。
+ * 这是"用数据自动发现规则"，比手工维护一张复合词表靠谱得多。
+ */
+const COMPOUND_MAP = (() => {
+  // 先收集曲库里出现过的所有词（只做最基础的标准化，不带词形还原）
+  const vocab = new Set();
+  SONGS.forEach(song => {
+    song.lines.forEach(line => {
+      splitWords(line.text).forEach(w => {
+        const n = w.toLowerCase().replace(/[^a-z']/g, "");
+        if (n.length >= 2) vocab.add(n);
+      });
+    });
+  });
+
+  const map = {};
+  vocab.forEach(word => {
+    if (word.length < 6) return;               // 太短的不拆，避免误判
+    for (let i = 3; i <= word.length - 3; i++) {
+      const left = word.slice(0, i);
+      const right = word.slice(i);
+      if (vocab.has(left) && vocab.has(right)) {
+        map[word] = [left, right];
+        break;
+      }
+    }
+  });
+  return map;
+})();
+
+// 取一个词的"全部可能形式"：本身 + 拆分后的两段
+function partsOf(word) {
+  const n = normalize(word);
+  if (!n) return [];
+  const parts = [n];
+  const split = COMPOUND_MAP[n];
+  if (split) parts.push(...split);
+  return parts;
+}
+
+// 核心判断：两个词是否算匹配（支持复合词双向匹配）
+function isMatch(word, queryParts) {
+  const wordParts = partsOf(word);
+  return wordParts.some(p => queryParts.includes(p));
+}
+
+/* ---------- 核心函数：搜索 ---------- */
+function search(rawQuery) {
+  const query = normalize(rawQuery);
+  if (!query) return [];
+
+  const queryParts = partsOf(rawQuery);
+  const hits = []; // 每个元素 = 歌曲
+
+  SONGS.forEach(song => {
+    const matchedLines = [];
+    const byText = new Map();   // 同一句歌词（副歌）会重复出现，合并计数
+
+    song.lines.forEach((line, li) => {
+      const words = splitWords(line.text);
+      // 这一行里有没有哪个词跟查询词匹配？
+      const matched = words.filter(w => isMatch(w, queryParts));
+      if (matched.length > 0) {
+        const key = line.text.toLowerCase();
+        const exist = byText.get(key);
+        if (exist) {
+          exist.repeat += 1;
+        } else {
+          const item = {
+            time: line.t,
+            text: line.text,
+            repeat: 1,
+            idx: li,          // 在歌曲内的行号 —— 用于定位旋律乐句
+            // 记录原始形式，用于高亮时显示正确的词形
+            forms: matched
+          };
+          byText.set(key, item);
+          matchedLines.push(item);
+        }
+      }
+    });
+
+    if (matchedLines.length > 0) {
+      hits.push({
+        song: song,
+        lines: matchedLines,
+        total: matchedLines.length
+      });
+    }
+  });
+
+  // 排序：命中行数多的排前面
+  hits.sort((a, b) => b.total - a.total);
+  return hits;
+}
+
+/* ---------- 精选例句：给每个词 3–5 句，而不是 30 句 ----------
+ * 学习场景里，一句例句看 3 秒，30 句就是 90 秒的劝退。
+ * 所以这里做三件事：
+ *   1. 每首歌最多贡献 1 句（保证来源多样，别全是同一首的副歌）
+ *   2. 优先选 5–11 个词的中等长度句子（太短没语境，太长看不懂）
+ *   3. 上限 5 句，足量即止
+ */
+function scoreLine(text) {
+  const n = splitWords(text).length;
+  if (n >= 5 && n <= 11) return 10 - Math.abs(n - 8);  // 8 词左右最佳
+  if (n < 5) return n;                                  // 越短越差
+  return Math.max(1, 12 - n);                           // 太长缓慢降分
+}
+
+function pickFeatured(hits, limit = 5) {
+  const pools = hits.map(h => ({
+    song: h.song,
+    lines: h.lines.slice().sort((a, b) => scoreLine(b.text) - scoreLine(a.text))
+  }));
+
+  const picked = [];
+  const usedText = new Set();
+
+  // 轮流从每首歌取，第一轮取各首最好的那句，第二轮取第二好的……
+  for (let round = 0; picked.length < limit; round++) {
+    let added = false;
+    for (const pool of pools) {
+      if (picked.length >= limit) break;
+      const line = pool.lines[round];
+      if (!line) continue;
+      const key = line.text.toLowerCase();
+      if (usedText.has(key)) continue;
+      usedText.add(key);
+      picked.push({ song: pool.song, line });
+      added = true;
+    }
+    if (!added) break;
+  }
+  return picked;
+}
+
+/* ---------- 拼写纠错：把"搜不到"变成"你是不是想找" ----------
+ * 这是用户最高频的挫败点：词拼错一个字母、或者只记得前半截，就一无所获。
+ * 两种办法一起上：
+ *   1. 前缀匹配  —— 输入 "riv" 给出 "river" / "riverbank"
+ *   2. 编辑距离  —— 输入 "nigt" 给出 "night"（最多差 2 个字符）
+ * 只在首字母相同、长度接近的词里找，避免给出完全不沾边的结果。
+ */
+function editDistance(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  const m = a.length, n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// 曲库里的词频：同样"接近"的两个词，更常用的那个更可能是用户想找的
+const FREQ = (() => {
+  const m = new Map();
+  SONGS.forEach(s => s.lines.forEach(l => splitWords(l.text).forEach(w => {
+    const n = w.toLowerCase().replace(/[^a-z']/g, "");
+    m.set(n, (m.get(n) || 0) + 1);
+  })));
+  return m;
+})();
+
+function suggestSimilar(query, limit = 4) {
+  const q = normalize(query);
+  if (!q || q.length < 3) return [];
+
+  // 短查询只容忍 1 个字符的误差，否则会拽出一堆不相关的短词
+  const maxDist = q.length >= 5 ? 2 : 1;
+  const scored = [];
+
+  VOCAB.forEach(w => {
+    if (w === q || STOPWORDS.has(w)) return;
+
+    let score = null;
+    if (w.startsWith(q) && w.length <= q.length + 8) {
+      // 前缀命中优先，越长的后缀越靠后
+      score = 0.05 + (w.length - q.length) * 0.012;
+    } else if (w[0] === q[0] && Math.abs(w.length - q.length) <= maxDist) {
+      const d = editDistance(q, w);
+      // 关键：用"归一化距离"而不是绝对距离。
+      // 绝对距离会让 he 这种短词白占便宜（hme → he 只差 1 个），
+      // 除以长度之后 home 才排得上来。
+      if (d <= maxDist) score = d / Math.max(q.length, w.length);
+    }
+    if (score === null) return;
+
+    // 词频微调，最多减 0.12
+    score -= Math.min(0.12, Math.log10(1 + (FREQ.get(w) || 0)) * 0.05);
+    scored.push([w, score]);
+  });
+
+  scored.sort((a, b) => a[1] - b[1] || a[0].length - b[0].length);
+  return scored.slice(0, limit).map(x => x[0]);
+}
+
+/* ---------- 图标 ---------- */
+const ICON_MELODY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+  <path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/>
+</svg>`;
+
+const ICON_SPEAK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+  <path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+</svg>`;
+
+/* ---------- 音高曲线：让"词曲一体"在视觉上也成立 ----------
+ * 引擎的 Sound.preview() 只算谱不发声，给出每个音"多高、多长、第几秒起"，
+ * 画成垫在歌词下面的阶梯线 —— 线与声音是同一份数据，不会画错。
+ */
+const pitchCache = new Map();
+
+function pitchSvg(songId, idx, text) {
+  const key = songId + ":" + idx;
+  let p = pitchCache.get(key);
+  if (p === undefined) {
+    p = (typeof Sound !== "undefined" && Sound.preview) ? Sound.preview(songId, idx, text) : null;
+    pitchCache.set(key, p);
+  }
+  if (!p || p.notes.length < 2) return "";
+
+  const W = 100, H = 17, PAD = 2.5;
+  const ms = p.notes.map(n => n.midi);
+  const lo = Math.min.apply(null, ms), hi = Math.max.apply(null, ms);
+  const span = Math.max(3, hi - lo);
+  const y = m => PAD + (1 - (m - lo) / span) * (H - PAD * 2);
+  const x = t => Math.min(W, Math.max(0, t / p.total * W));
+
+  // 阶梯线：音在时值内是平的，换音才跳 —— 这是"音符"的诚实画法，不是平滑曲线
+  let d = "", dots = "";
+  p.notes.forEach(n => {
+    const x0 = x(n.at).toFixed(1), x1 = x(n.at + n.dur).toFixed(1), yy = y(n.midi).toFixed(1);
+    d += (d ? "L" : "M") + x0 + " " + yy + "L" + x1 + " " + yy;
+    // 每个音的起点点一个点：读起来是"音"，不是一条随手画的波浪
+    if (p.notes.length <= 40) dots += "M" + x0 + " " + yy + "l0.001 0";
+  });
+
+  return `<span class="pitch"><svg class="pitch-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
+         `<path class="p-base" d="${d}"/><path class="p-fill" pathLength="100" d="${d}"/><path class="p-dots" d="${dots}"/></svg></span>`;
+}
+
+// 播放时：亮线用 stroke-dashoffset 从左推到右，时长 = 这句旋律的真实时长
+function pitchAnimate(el, totalMs) {
+  const fill = el.querySelector(".p-fill");
+  if (!fill) return;
+  fill.style.transition = "none";
+  fill.style.strokeDashoffset = "100";
+  fill.style.opacity = "1";
+  void fill.getBoundingClientRect();   // 强制重排，下一次 transition 才生效
+  fill.style.transition = "stroke-dashoffset " + Math.max(200, totalMs) + "ms linear";
+  fill.style.strokeDashoffset = "0";
+}
+
+/* 曲线宽度跟着句子走：文字多宽，旋律就画多宽。
+ * 不这么做，20 个音会被拉成半米长的波浪线，看着像条分隔符，
+ * 而不是"这句话的调子"——正好毁掉词曲一体的感觉。 */
+function fitPitch(root) {
+  (root || document).querySelectorAll(".lyric-text").forEach(box => {
+    const pitch = box.querySelector(".pitch");
+    if (!pitch) return;
+    let w = 0;
+    try {
+      const r = document.createRange();
+      r.setStart(box, 0);
+      r.setEnd(pitch, 0);          // 只量文字，不含曲线本身
+      w = r.getBoundingClientRect().width;
+    } catch (e) {}
+    if (!w || w < 24) return;      // 折叠区里量不到，展开时会再算一次
+    pitch.style.width = Math.round(Math.min(w, box.clientWidth)) + "px";
+  });
+}
+
+// 行内动作按钮：播旋律 / 朗读（只在该歌有旋律时给 ♪）
+function actionsHtml(songId, idx) {
+  const scored = Sound.hasMelody(songId);
+  return `<span class="acts">
+    <button class="act" data-act="melody" data-id="${songId}" data-idx="${idx}"
+            title="${scored ? "按原曲旋律唱这句" : "即兴唱这句（这首暂无传世曲谱）"}">${ICON_MELODY}</button>
+    <button class="act" data-act="say" data-id="${songId}" data-idx="${idx}" title="朗读这句">${ICON_SPEAK}</button>
+  </span>`;
+}
+
+// 歌名后的徽章：曲谱 / 哼唱，点之前就知道会听到什么
+function melodyBadge(songId) {
+  return Sound.hasMelody(songId)
+    ? `<span class="mel-badge">♪ 有曲谱</span>`
+    : `<span class="mel-badge hum">♪ 即兴哼唱</span>`;
+}
+
+/* ---------- 渲染：把搜索结果画出来 ---------- */
+function render(hits, rawQuery) {
+  const box = document.getElementById("results");
+  const status = document.getElementById("status");
+  const query = normalize(rawQuery);
+
+  if (!rawQuery.trim()) {
+    box.innerHTML = "";
+    status.innerHTML = "输入一个单词开始查找。";
+    return;
+  }
+
+  if (hits.length === 0) {
+    const tips = suggestSimilar(rawQuery, 4);
+    box.innerHTML = `
+      <div class="empty">
+        <div class="empty-title">没有找到包含 "${escapeHtml(rawQuery)}" 的歌词</div>
+        ${tips.length ? `
+          <div class="suggest-block">
+            <div class="suggest-label">你是不是想找</div>
+            <div class="suggest-list">
+              ${tips.map(w => `<button class="suggest-chip" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join("")}
+            </div>
+          </div>
+        ` : `
+          试试更常见的词，比如 <b>love</b>、<b>home</b>、<b>night</b>、<b>river</b><br>
+        `}
+        <div class="empty-note">
+          曲库只覆盖"民谣 / 童谣词汇"——抽象词、学术词基本查不到，这是这类产品的天然边界。
+        </div>
+      </div>`;
+
+    status.innerHTML = tips.length
+      ? `曲库里没有 "${escapeHtml(rawQuery)}"，但找到了 ${tips.length} 个接近的词`
+      : "";
+
+    box.querySelectorAll(".suggest-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("q").value = btn.dataset.w;
+        doSearch();
+        Sound.speakWord(btn.dataset.w);
+      });
+    });
+    return;
+  }
+
+  const totalLines = hits.reduce((s, h) => s + h.total, 0);
+  const queryParts = partsOf(rawQuery);
+  const notes = [];
+
+  if (query !== rawQuery.toLowerCase().trim()) {
+    notes.push(`已把 "${escapeHtml(rawQuery)}" 还原为 "${query}"`);
+  }
+  if (queryParts.length > 1) {
+    notes.push(`已按复合词拆分为 ${queryParts.map(p => `"${p}"`).join(" + ")}`);
+  }
+  if (STOPWORDS.has(query)) {
+    notes.push("这是虚词，几乎每句都有，建议查实义词");
+  }
+
+  const featured = pickFeatured(hits, 5);
+  const short = totalLines < 3;
+  const melodyCount = hits.filter(h => Sound.hasMelody(h.song.id)).length;
+
+  status.innerHTML =
+    `找到 <b>${hits.length}</b> 首歌、<b>${totalLines}</b> 处匹配` +
+    (short
+      ? `，不足 3 句（曲库还不够大，这是已知局限）`
+      : `，为你精选 <b>${featured.length}</b> 句`) +
+    (melodyCount ? ` · <b>${melodyCount}</b> 首有原曲曲谱` : "") +
+    (hits.length - melodyCount ? `，${hits.length - melodyCount} 首为即兴哼唱` : "") +
+    (notes.length ? `（${notes.join("；")}）` : "");
+
+  box.innerHTML = `
+    <div class="featured">
+      <div class="featured-head">
+        <span>精选例句</span>
+        <span class="featured-tip">点任意一句听它被唱出来 · 下面那条金线就是这句的调子</span>
+      </div>
+      ${featured.map(({ song, line }) => `
+        <div class="lyric-line feat-line"
+             data-song="${escapeHtml(song.title)}"
+             data-id="${song.id}"
+             data-idx="${line.idx}"
+             data-time="${line.time}"
+             data-text="${escapeHtml(line.text)}">
+          <span class="timestamp">${formatTime(line.time)}</span>
+          <div class="feat-body">
+            <div class="lyric-text">${highlight(line.text, rawQuery)}${pitchSvg(song.id, line.idx, line.text)}</div>
+            <div class="feat-src"><em>${escapeHtml(song.title)}</em> · ${escapeHtml(song.artist)} · ${melodyBadge(song.id)}</div>
+          </div>
+          ${actionsHtml(song.id, line.idx)}
+        </div>
+      `).join("")}
+    </div>
+
+    <button class="toggle-all" id="toggleAll">
+      查看全部 ${totalLines} 处 · 分布在 ${hits.length} 首歌
+    </button>
+    <div class="all-results" id="allResults">
+      ${hits.map(hit => `
+        <div class="result">
+          <div class="result-head">
+            <span class="song-title">${escapeHtml(hit.song.title)}</span>
+            <span class="song-artist">${escapeHtml(hit.song.artist)}</span>
+            ${melodyBadge(hit.song.id)}
+            <span class="hit-count">${hit.total} 处</span>
+          </div>
+          ${hit.lines.map(l => `
+            <div class="lyric-line"
+                 data-song="${escapeHtml(hit.song.title)}"
+                 data-id="${hit.song.id}"
+                 data-idx="${l.idx}"
+                 data-time="${l.time}"
+                 data-text="${escapeHtml(l.text)}">
+              <span class="timestamp">${formatTime(l.time)}</span>
+              <span class="lyric-text">${highlight(l.text, rawQuery)}${pitchSvg(hit.song.id, l.idx, l.text)}</span>
+              ${l.repeat > 1 ? `<span class="repeat-badge">×${l.repeat}</span>` : ""}
+              ${actionsHtml(hit.song.id, l.idx)}
+            </div>
+          `).join("")}
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // 展开 / 收起全部结果
+  const toggle = document.getElementById("toggleAll");
+  const allBox = document.getElementById("allResults");
+  toggle.addEventListener("click", () => {
+    const open = allBox.classList.toggle("open");
+    toggle.textContent = open
+      ? `收起全部结果`
+      : `查看全部 ${totalLines} 处 · 分布在 ${hits.length} 首歌`;
+    if (open) fitPitch(allBox);   // 折叠时量不到宽度，展开再量
+  });
+
+  // 给每一行歌词绑定点击事件 —— 这就是"跳到那句"的入口
+  box.querySelectorAll(".lyric-line").forEach(el => {
+    el.addEventListener("click", () => playLine(el));
+  });
+
+  // 行内动作按钮：阻止冒泡，单独触发
+  box.querySelectorAll(".act").forEach(btn => {
+    btn.addEventListener("click", ev => {
+      ev.stopPropagation();
+      const el = btn.closest(".lyric-line");
+      if (btn.dataset.act === "say") {
+        speakLine(el);          // 🔊 永远是朗读，不受三档开关影响
+      } else {
+        playLine(el, true);     // ♪ 永远是唱/奏，朗读档下也不降级
+      }
+    });
+  });
+
+  fitPitch(box);   // 曲线宽度按句子实际宽度收一遍
+}
+
+/* ---------- 高亮：把匹配到的词包进 <mark>，同时每个词包一层 span ----------
+ * span 有两个用处：
+ *   1. 让"点句子演奏时逐词点亮"成为可能（卡拉 OK 效果）
+ *   2. 不破坏原有的连字符、撇号、标点排版
+ */
+function highlight(lineText, rawQuery) {
+  const queryParts = partsOf(rawQuery);
+
+  return String(lineText)
+    .split(/([A-Za-z][A-Za-z']*)/)
+    .map(tok => {
+      if (!tok) return "";
+      if (!/^[A-Za-z]/.test(tok)) return escapeHtml(tok);
+      const body = isMatch(tok, queryParts)
+        ? `<mark>${escapeHtml(tok)}</mark>`
+        : escapeHtml(tok);
+      return `<span class="w">${body}</span>`;
+    })
+    .join("");
+}
+
+/* ---------- 播放：真的出声 ----------
+ * 两种声音来源，按歌曲能力自动选择：
+ *   有旋律曲谱 → Web Audio 现场合成这句的乐句
+ *   没有曲谱   → 用浏览器语音引擎把这句读出来
+ * 两者都不加载任何音频文件。
+ */
+let playerTimer = null;
+let lastPlayed = null;
+
+/* ---------- 卡拉 OK：旋律走到哪个词，就把哪个词点亮 ----------
+ * 我们没有逐音符对齐的歌词数据，所以按"每个词的长度"分配时间，
+ * 播放总时长来自旋律本身的拍数 —— 大体跟着唱，视觉上完全对得上。
+ */
+let karaokeTimers = [];
+
+function stopKaraoke() {
+  karaokeTimers.forEach(clearTimeout);
+  karaokeTimers = [];
+  document.querySelectorAll(".lyric-text .w.sung").forEach(n => n.classList.remove("sung"));
+  // 音高曲线的亮线一并收回，下次播放重新推
+  document.querySelectorAll(".pitch-svg .p-fill").forEach(n => {
+    n.style.transition = "none";
+    n.style.strokeDashoffset = "100";
+    n.style.opacity = "";
+  });
+}
+
+function karaoke(el, marks, totalMs) {
+  pitchAnimate(el, totalMs);
+  const spans = el.querySelectorAll(".lyric-text .w");
+  if (!spans.length) return;
+
+  // 引擎排声音时留了 60ms 起振余量，点亮也跟着挪 60ms，视觉才不会抢在声音前面
+  const LEAD = 60;
+
+  // 引擎给了"每个词落在哪个音符上"的时间表，直接照着点亮。
+  // 词数对不上（分词口径不同）才退回按词长平均铺。
+  if (marks && marks.length === spans.length) {
+    marks.forEach((t, i) => {
+      karaokeTimers.push(setTimeout(() => spans[i].classList.add("sung"), Math.max(0, t * 1000 + LEAD)));
+    });
+    return;
+  }
+
+  const weights = Array.prototype.map.call(spans, s => Math.max(1, s.textContent.length));
+  const sum = weights.reduce((a, b) => a + b, 0);
+
+  let acc = 0;
+  spans.forEach((s, i) => {
+    const at = (acc / sum) * totalMs;
+    acc += weights[i];
+    karaokeTimers.push(setTimeout(() => s.classList.add("sung"), at));
+  });
+}
+
+function flashPlayer(el, note, isMelody) {
+  const player = document.getElementById("player");
+  document.querySelectorAll(".lyric-line.playing").forEach(n => n.classList.remove("playing"));
+  el.classList.add("playing");
+
+  document.getElementById("pSong").textContent = el.dataset.song;
+  document.getElementById("pLine").textContent = el.dataset.text;
+  document.getElementById("pTime").textContent = note;
+  player.classList.add("active");
+  player.classList.toggle("playing", !!isMelody);
+  document.getElementById("disc").classList.toggle("spin", !!isMelody);
+
+  clearTimeout(playerTimer);
+  if (!isMelody) {
+    playerTimer = setTimeout(() => {
+      player.classList.remove("playing");
+      document.getElementById("disc").classList.remove("spin");
+    }, 3200);
+  }
+}
+
+/* 起一段声音：
+ *   有曲谱 → 现场合成这句的原曲旋律（带低音垫）
+ *   没曲谱 → 按这句歌词的音节现场哼一段五声音阶（明说"即兴哼唱"，不冒充原曲）
+ * 返回 true 表示真的出声了，播放条已经更新；false 才退回朗读。
+ */
+/* 朗读模式：系统 TTS 正常读这句。
+ * 支持boundary 事件的浏览器里，词跟着真实读到的位置点亮；
+ * 不支持的（如部分 iOS）退回按词长平均铺——声音照样读，只是点亮是估算的。 */
+function ttsPlay(el, onEnd, note) {
+  Sound.stopMelody();
+  stopKaraoke();
+  const text = el.dataset.text;
+  const spans = el.querySelectorAll(".lyric-text .w");
+
+  /* 词起点：与 highlight() 的分词口径一致 */
+  const starts = [];
+  const re = /[A-Za-z][A-Za-z']*/g;
+  let m;
+  while ((m = re.exec(text))) starts.push(m.index);
+
+  const total = Math.max(1400, starts.length * 430 + 500);
+  pitchAnimate(el, total);
+
+  let lit = 0;
+  const lightUpTo = i => {
+    for (; lit <= i && lit < spans.length; lit++) spans[lit].classList.add("sung");
+  };
+
+  /* 兜底钟：按词长平均铺点亮；boundary 一到，真实进度会提前把它点亮 */
+  const weights = Array.prototype.map.call(spans, s => Math.max(1, s.textContent.length));
+  const wsum = weights.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  spans.forEach((s, i) => {
+    const at = (acc / wsum) * total;
+    acc += weights[i];
+    karaokeTimers.push(setTimeout(() => s.classList.add("sung"), at));
+  });
+
+  const ok = Sound.speak(text, {
+    rate: 0.84,
+    onBoundary: ci => {
+      let idx = 0;
+      for (let k = 0; k < starts.length; k++) if (starts[k] <= ci) idx = k;
+      lightUpTo(idx);
+    },
+    onEnd: () => {
+      karaokeTimers.forEach(clearTimeout);
+      karaokeTimers = [];
+      lightUpTo(spans.length - 1);
+      const fill = el.querySelector(".p-fill");
+      if (fill) fill.style.strokeDashoffset = "0";
+      document.getElementById("player").classList.remove("playing");
+      document.getElementById("disc").classList.remove("spin");
+      el.classList.remove("playing");
+      document.getElementById("pTime").textContent = "🔊 读完了 · 再点一次";
+      onEnd && onEnd();
+    }
+  });
+  if (!ok) return false;
+  flashPlayer(el, note || "🔊 朗读 · 系统语音正常发音", true);
+  return true;
+}
+
+function startSound(el, onEnd, forceMelody) {
+  if (!forceMelody && vMode === "tts") {
+    if (ttsPlay(el, onEnd)) return true;
+    // TTS 不可用（极少数设备）：落回合成唱
+  }
+  const songId = parseInt(el.dataset.id, 10);
+  const idx = parseInt(el.dataset.idx, 10);
+  const scored = Sound.hasMelody(songId);
+
+  const res = scored
+    ? Sound.playLine(songId, idx, onEnd, el.dataset.text)
+    : Sound.improvise(el.dataset.text, onEnd);
+
+  if (!res) return false;
+
+  const mode = Sound.isVoice() ? (scored ? "♪ 唱 · " : "♪ 即兴唱 · ") : (scored ? "♪ 正在演奏 · " : "♪ 即兴哼唱 · ");
+  flashPlayer(el, mode + res.total.toFixed(1) + "s", true);
+  karaoke(el, res.marks, res.total * 1000);
+  return true;
+}
+
+function playLine(el, forceMelody) {
+  lastPlayed = el;
+  stopKaraoke();
+  seqQueue = [];
+  Sound.stopSpeech();
+
+  const done = () => {
+    document.getElementById("player").classList.remove("playing");
+    document.getElementById("disc").classList.remove("spin");
+    el.classList.remove("playing");
+    document.getElementById("pTime").textContent = "♪ 播完 · 再点一次";
+  };
+
+  if (startSound(el, done, forceMelody)) return;
+
+  // 真的放不出声（老浏览器没有 AudioContext）：退回朗读
+  speakLine(el, "🔊 朗读 · 这台设备没法合成旋律");
+}
+
+function speakLine(el, note) {
+  if (ttsPlay(el, null, note || "🔊 朗读这句")) return;
+  flashPlayer(el, "🔇 这台设备没有语音引擎", false);
+}
+
+/* ---------- 连听 4 句：把这首歌连续的几段一次奏完 ----------
+ * 单句只有 4~9 秒，听起来太像"音效"。连着四句才像一段歌。
+ */
+let seqQueue = [];
+let seqTotal = 0;
+
+function findLineEl(songId, idx) {
+  return document.querySelector(`.lyric-line[data-id="${songId}"][data-idx="${idx}"]`);
+}
+
+function playSequence(el) {
+  const songId = parseInt(el.dataset.id, 10);
+  const song = (typeof SONGS !== "undefined" ? SONGS : []).find(s => s.id === songId);
+  if (!song) return;
+
+  const start = parseInt(el.dataset.idx, 10);
+  seqQueue = [];
+  for (let k = 0; k < 4; k++) {
+    const idx = start + k;
+    if (idx >= song.lines.length) break;
+    seqQueue.push({ songId, idx, text: song.lines[idx].text, el: findLineEl(songId, idx) || el });
+  }
+  seqTotal = seqQueue.length;
+  seqNext();
+}
+
+function seqNext() {
+  const item = seqQueue.shift();
+  if (!item) {
+    document.getElementById("player").classList.remove("playing");
+    document.getElementById("disc").classList.remove("spin");
+    document.querySelectorAll(".lyric-line.playing").forEach(n => n.classList.remove("playing"));
+    document.getElementById("pTime").textContent = "♪ 连播结束";
+    return;
+  }
+
+  const el = item.el;
+  lastPlayed = el;
+  stopKaraoke();
+
+  /* 朗读档：四句连读，读完一句自动下一句 */
+  if (vMode === "tts") {
+    if (!ttsPlay(el, seqNext, `🔊 连读 ${seqTotal - seqQueue.length}/${seqTotal}`)) seqQueue = [];
+    return;
+  }
+
+  const scored = Sound.hasMelody(item.songId);
+  const res = scored
+    ? Sound.playLine(item.songId, item.idx, seqNext, item.text)
+    : Sound.improvise(item.text, seqNext);
+  if (!res) { seqQueue = []; return; }
+
+  flashPlayer(el, `♪ 连播 ${seqTotal - seqQueue.length}/${seqTotal}`, true);
+  karaoke(el, res.marks, res.total * 1000);
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/* ---------- 单词表分析：这个产品的"灵魂功能" ---------- */
+function analyzeList() {
+  const raw = document.getElementById("wordlist").value;
+  const words = raw.split(/[\s,，、\n]+/).filter(w => w.trim());
+
+  if (words.length === 0) {
+    alert("先粘贴一些单词进来吧～");
+    return;
+  }
+
+  // 去重
+  const uniq = [...new Set(words.map(w => normalize(w)).filter(Boolean))];
+
+  const hitWords = [];
+  const missWords = [];
+
+  uniq.forEach(w => {
+    const result = search(w);
+    if (result.length > 0) {
+      hitWords.push({ word: w, songs: result.length, lines: result.reduce((s, h) => s + h.total, 0) });
+    } else {
+      missWords.push(w);
+    }
+  });
+
+  // 按命中歌曲数排序
+  hitWords.sort((a, b) => b.songs - a.songs);
+
+  const rate = Math.round(hitWords.length / uniq.length * 100);
+
+  const out = document.getElementById("studyResult");
+  out.classList.add("show");
+  out.innerHTML = `
+    <div style="margin-bottom:12px">
+      共 <b>${uniq.length}</b> 个词，其中 <b style="color:var(--sage)">${hitWords.length}</b> 个能在歌里找到，
+      覆盖率 <b style="color:var(--sage)">${rate}%</b>。
+    </div>
+    <div style="margin-bottom:6px;font-size:11.5px;color:var(--ink-3)">点下面的词可以查看它在哪首歌里：</div>
+    <div style="margin-bottom:14px">
+      ${hitWords.map(h => `<span class="word-tag word-hit" data-w="${h.word}">${h.word} · ${h.songs}首·${h.lines}句</span>`).join("")}
+    </div>
+    ${missWords.length ? `
+      <div style="margin-bottom:6px;font-size:11.5px;color:var(--ink-3)">这些词在曲库里没找到（曲库越大命中越多）：</div>
+      <div>${missWords.map(w => `<span class="word-tag word-miss">${w}</span>`).join("")}</div>
+    ` : ""}
+  `;
+
+  // 点击词标签 → 自动填入搜索框并搜索
+  out.querySelectorAll(".word-hit").forEach(tag => {
+    tag.addEventListener("click", () => {
+      document.getElementById("q").value = tag.dataset.w;
+      doSearch();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+}
+
+/* ---------- 事件绑定 ---------- */
+// 首屏示例：什么都没输入时，用 "love" 演示这个产品能干什么，
+// 比一块空白更有说服力——用户第一眼就知道"哦，原来是这个效果"
+function renderExample() {
+  render(search("love"), "love");
+  document.getElementById("status").innerHTML =
+    "这是一个示例 —— 输入你的单词，或点上面的候选词开始";
+}
+
+function doSearch() {
+  const q = document.getElementById("q");
+  const raw = q.value;
+  document.querySelector(".search-box").classList.toggle("has-value", !!raw.trim());
+  if (!raw.trim()) { renderExample(); syncUrl(""); return; }
+  render(search(raw), raw);
+  syncUrl(raw);
+}
+
+// 把当前查询写进地址栏 —— 链接可以直接发给同学，刷新也不会丢
+function syncUrl(raw) {
+  try {
+    const url = new URL(location.href);
+    if (raw.trim()) url.searchParams.set("q", raw.trim());
+    else url.searchParams.delete("q");
+    history.replaceState(null, "", url);
+  } catch (e) { /* file:// 下个别浏览器不支持，忽略即可 */ }
+}
+
+// 关闭播放条（点 ×、按 Esc 都走这里）
+function closePlayer() {
+  Sound.stopAll();
+  stopKaraoke();
+  seqQueue = [];
+  seqTotal = 0;
+  const player = document.getElementById("player");
+  player.classList.remove("active", "playing");
+  document.getElementById("disc").classList.remove("spin");
+  document.querySelectorAll(".lyric-line.playing").forEach(n => n.classList.remove("playing"));
+}
+
+document.getElementById("q").addEventListener("input", doSearch);
+document.getElementById("analyzeBtn").addEventListener("click", analyzeList);
+
+// 朗读当前查询的单词
+document.getElementById("sayWord").addEventListener("click", () => {
+  const w = document.getElementById("q").value.trim();
+  if (w) Sound.speakWord(w.split(/\s+/)[0]);
+});
+
+// 清空搜索框：回到首屏示例状态
+document.getElementById("clearQ").addEventListener("click", () => {
+  const q = document.getElementById("q");
+  q.value = "";
+  doSearch();
+  q.focus();
+});
+
+// 播放条：重播
+document.getElementById("pReplay").addEventListener("click", () => {
+  if (lastPlayed && document.body.contains(lastPlayed)) playLine(lastPlayed);
+});
+
+// 播放条：从这一句起连听四句
+document.getElementById("pSeq").addEventListener("click", () => {
+  if (lastPlayed && document.body.contains(lastPlayed)) playSequence(lastPlayed);
+});
+
+/* 播放条：人声 / 乐声 / 朗读 三档循环切换。
+ * 默认人声（把词唱进旋律）；切成乐声就是原来的八音盒演奏，方便当场对比。
+ * 选择存本地，下次打开还是上次那样。
+ */
+const pVoice = document.getElementById("pVoice");
+/* 三档：voice=合成人声唱 / music=只奏乐 / tts=系统语音正常朗读 */
+let vMode = "voice";
+
+function applyVoice(mode, replay) {
+  vMode = mode;
+  Sound.setVoice(mode === "voice");
+  pVoice.classList.toggle("on", mode === "voice");
+  pVoice.textContent = mode === "voice" ? "人声" : mode === "music" ? "乐声" : "朗读";
+  pVoice.title = mode === "voice"
+    ? "人声：按元音唱这句；点一下只听八音盒旋律"
+    : mode === "music"
+      ? "乐声：只听旋律；点一下改用系统语音正常朗读"
+      : "朗读：系统语音引擎读这句，咬字最清楚；点一下切回人声唱";
+  try { localStorage.setItem("lf_voice", mode === "voice" ? "1" : mode === "music" ? "0" : "t"); } catch (e) {}
+  if (replay && lastPlayed && document.body.contains(lastPlayed)) playLine(lastPlayed);
+}
+
+pVoice.addEventListener("click", () => {
+  applyVoice(vMode === "voice" ? "music" : vMode === "music" ? "tts" : "voice", true);
+});
+
+(function initVoice() {
+  let saved = null;
+  try { saved = localStorage.getItem("lf_voice"); } catch (e) {}
+  applyVoice(saved === "0" ? "music" : saved === "t" ? "tts" : "voice", false);
+})();
+
+// 播放条：关闭
+document.getElementById("pClose").addEventListener("click", closePlayer);
+
+/* ---------- 键盘快捷键 ----------
+ * 常见习惯：/ 或 Ctrl+K 聚焦搜索框，Esc 关掉播放条。
+ */
+document.addEventListener("keydown", e => {
+  const input = document.getElementById("q");
+  const typing = document.activeElement === input ||
+                 document.activeElement.tagName === "TEXTAREA";
+
+  if ((e.key === "/" && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+    e.preventDefault();
+    input.focus();
+    input.select();
+  }
+  if (e.key === "Escape") {
+    if (typing) input.blur();
+    closePlayer();
+  }
+});
+
+// 快捷候选词：从一个更大的词池里轮换展示，"换一批"往后翻
+const CHIP_POOL = ["love","night","home","water","hand","sing","snow","dream",
+                   "river","star","heart","sky","sun","moon","bird","tree",
+                   "sea","road","gold","story","dance","smile","rain","fire"];
+const CHIP_PAGE = 8;
+let chipCursor = 0;
+
+function renderChips() {
+  const picks = [];
+  for (let i = 0; i < CHIP_PAGE; i++) {
+    picks.push(CHIP_POOL[chipCursor % CHIP_POOL.length]);
+    chipCursor++;
+  }
+  const box = document.getElementById("chips");
+  box.innerHTML = picks
+    .map(w => `<button class="chip">${w}</button>`).join("") +
+    `<button class="chip more" id="chipMore" title="换一批候选词">换一批</button>`;
+
+  box.querySelectorAll(".chip:not(.more)").forEach(c => {
+    c.addEventListener("click", () => {
+      document.getElementById("q").value = c.textContent;
+      doSearch();
+      Sound.speakWord(c.textContent);
+    });
+  });
+  box.querySelector("#chipMore").addEventListener("click", renderChips);
+}
+renderChips();
+
+// FAQ 里的曲谱数量跟着曲库走，避免写死数字
+document.getElementById("faqMelody").textContent = Sound.melodySongs.length;
+
+// 初始状态
+document.getElementById("libInfo").innerHTML = [
+  SONGS.length + " 首",
+  SONGS.reduce((n, s) => n + s.lines.length, 0) + " 句",
+  VOCAB.size + " 个词形",
+  Sound.melodySongs.length + " 首带曲谱"
+].map(t => `<span>${t}</span>`).join("");
+
+// 地址栏里带 ?q=xxx 时直接搜索 —— 分享链接、刷新页面都能还原
+let initialQ = "";
+try { initialQ = new URL(location.href).searchParams.get("q") || ""; } catch (e) {}
+
+if (initialQ) {
+  document.getElementById("q").value = initialQ;
+  doSearch();
+} else {
+  renderExample();
+}
+
+// 字体加载完、窗口缩放后，句子宽度会变，曲线宽度跟着重算
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitPitch());
+let fitTimer = null;
+addEventListener("resize", () => {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(() => fitPitch(), 120);
+});
+
+// 键盘：回车朗读
+document.getElementById("q").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    const w = document.getElementById("q").value.trim();
+    if (w) Sound.speakWord(w.split(/\s+/)[0]);
+  }
+});
+</script>
+</body>
+</html>
